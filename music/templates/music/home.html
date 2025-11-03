@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-6">
+    <h1 class="text-2xl font-bold text-orange-400 mb-6">🎶 Latest Songs</h1>
+
+    <!-- Match Search: simple list with Play using global player -->
+    {% if songs %}
+    <ul class="space-y-2">
+        {% for song in songs %}
+        <li class="song-item flex items-center justify-between bg-gray-800 p-3 rounded-lg hover:bg-gray-700"
+            data-src="{{ song.audio_file.url }}"
+            data-title="{{ song.title }}"
+            data-artist="{% for artist in song.artists.all %}{{ artist.name }}{% if not forloop.last %}, {% endif %}{% endfor %}"
+            data-cover="{% if song.cover %}{{ song.cover.url }}{% endif %}">
+            <div class="min-w-0 flex items-center gap-3">
+                {% if song.cover %}
+                    <img src="{{ song.cover.url }}" alt="{{ song.title }}" class="w-10 h-10 object-cover rounded-md">
+                {% endif %}
+                <div class="min-w-0">
+                    <a href="{% url 'song_detail' song.id %}" class="text-lg text-orange-400 font-medium hover:underline truncate block">
+                        {{ song.title }}
+                    </a>
+                    <p class="text-sm text-gray-400 truncate">
+                        by 
+                        {% for artist in song.artists.all %}
+                            <a href="{% url 'artist_detail' artist.id %}" class="text-orange-300 hover:underline">
+                                {{ artist.name }}
+                            </a>{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 ml-3">
+                <button data-action="play" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg">Play</button>
+
+                {% if request.user.is_authenticated and request.user.playlists.exists %}
+                <select class="bg-gray-700 text-white text-sm px-2 py-2 rounded" onchange="if(this.value){ window.location.href=this.value; } this.selectedIndex=0;">
+                    <option value="" selected disabled>Add to playlist</option>
+                    {% for pl in request.user.playlists.all %}
+                        <option value="{% url 'playlist_add_song' pl.pk song.pk %}">{{ pl.name }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <a href="{% url 'playlist_create' %}" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded">+ Playlist</a>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+        <p class="text-gray-400">No songs available.</p>
+    {% endif %}
+</div>
+{% endblock %}

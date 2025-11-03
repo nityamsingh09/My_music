@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Music App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <!-- Navbar -->
+    <header class="bg-gray-800 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <a href="/" class="text-orange-400 font-bold text-xl">🎵 MusicApp</a>
+
+                <!-- Desktop Links -->
+                <nav class="hidden md:flex space-x-6">
+                    <a href="/" class="hover:text-orange-400">Home</a>
+                    <a href="/songs/" class="hover:text-orange-400">Songs</a>
+                    <a href="/artists/" class="hover:text-orange-400">Artists</a>
+                    <a href="/playlists/" class="hover:text-orange-400">My Playlists</a>
+                </nav>
+
+                <!-- Mobile Hamburger -->
+                <button id="nav-toggle" class="md:hidden p-2 rounded hover:bg-gray-700" aria-label="Open menu" aria-expanded="false">☰</button>
+
+                <!-- Search -->
+                <form action="/search/" method="get" class="hidden lg:flex">
+                    <input type="text" name="q" placeholder="Search songs or artists"
+                           value="{{ request.GET.q }}"
+                           class="rounded-l-md px-3 py-1 text-black focus:outline-none">
+                    <button type="submit" class="bg-orange-500 px-3 rounded-r-md hover:bg-orange-600">
+                        🔍
+                    </button>
+                </form>
+
+                <!-- Auth Links -->
+               <div class="ml-4">
+    {% if request.user.is_authenticated %}
+        <span class="mr-3">Hi, {{ request.user.username }}</span>
+        <a href="{% url 'account_logout' %}" 
+           class="bg-red-500 px-3 py-1 rounded hover:bg-red-600">Logout</a>
+    {% else %}
+        <a href="{% url 'account_login' %}" 
+           class="bg-blue-500 px-3 py-1 rounded hover:bg-blue-600">Login</a>
+        <a href="{% url 'account_signup' %}" 
+           class="ml-2 bg-green-500 px-3 py-1 rounded hover:bg-green-600">Sign Up</a>
+    {% endif %}
+</div>
+
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="md:hidden hidden border-t border-gray-700">
+            <nav class="px-4 py-3 space-y-2">
+                <a href="/" class="block hover:text-orange-400">Home</a>
+                <a href="/songs/" class="block hover:text-orange-400">Songs</a>
+                <a href="/artists/" class="block hover:text-orange-400">Artists</a>
+                <a href="/playlists/" class="block hover:text-orange-400">My Playlists</a>
+                <form action="/search/" method="get" class="pt-2">
+                    <div class="flex">
+                        <input type="text" name="q" placeholder="Search songs or artists" value="{{ request.GET.q }}" class="flex-1 rounded-l-md px-3 py-1 text-black focus:outline-none">
+                        <button type="submit" class="bg-orange-500 px-3 rounded-r-md hover:bg-orange-600">🔍</button>
+                    </div>
+                </form>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="p-6 pb-28">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Global Audio Player (Sticky Bottom) -->
+    <div id="global-player" class="fixed inset-x-0 bottom-0 bg-gray-800 border-t border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
+            <img id="gp-cover" src="" alt="cover" class="w-12 h-12 rounded object-cover hidden sm:block">
+            <div class="min-w-0">
+                <div id="gp-title" class="text-sm font-semibold truncate">No song selected</div>
+                <div id="gp-artist" class="text-xs text-gray-400 truncate">—</div>
+            </div>
+            <div class="flex-1 flex flex-col items-center gap-2">
+                <div class="flex items-center gap-2 w-full max-w-md">
+                    <span id="gp-current" class="text-xs text-gray-400 tabular-nums w-10 text-right">0:00</span>
+                    <input id="gp-seek" type="range" min="0" max="100" value="0" class="w-full">
+                    <span id="gp-duration" class="text-xs text-gray-400 tabular-nums w-10">0:00</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="gp-prev" class="px-2 py-1 rounded hover:bg-gray-700" title="Previous">⏮️</button>
+                    <button id="gp-play" class="px-3 py-1 rounded bg-orange-500 hover:bg-orange-600 text-white" title="Play/Pause">▶️</button>
+                    <button id="gp-next" class="px-2 py-1 rounded hover:bg-gray-700" title="Next">⏭️</button>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="gp-loop" class="px-2 py-1 rounded hover:bg-gray-700" title="Loop">🔁</button>
+                <button id="gp-share" class="px-2 py-1 rounded hover:bg-gray-700" title="Share">🔗</button>
+            </div>
+        </div>
+        <audio id="gp-audio" preload="none"></audio>
+    </div>
+
+    <script>
+    (function() {
+        // Hamburger menu
+        const toggle = document.getElementById('nav-toggle');
+        const menu = document.getElementById('mobile-menu');
+        if (toggle && menu) {
+            toggle.addEventListener('click', () => {
+                const open = menu.classList.toggle('hidden') === false;
+                toggle.setAttribute('aria-expanded', String(open));
+            });
+        }
+
+        const audio = document.getElementById('gp-audio');
+        const playBtn = document.getElementById('gp-play');
+        const prevBtn = document.getElementById('gp-prev');
+        const nextBtn = document.getElementById('gp-next');
+        const loopBtn = document.getElementById('gp-loop');
+        const shareBtn = document.getElementById('gp-share');
+        const seek = document.getElementById('gp-seek');
+        const cur = document.getElementById('gp-current');
+        const dur = document.getElementById('gp-duration');
+        const titleEl = document.getElementById('gp-title');
+        const artistEl = document.getElementById('gp-artist');
+        const coverEl = document.getElementById('gp-cover');
+
+        let playlist = [];
+        let index = -1;
+
+        function timeFmt(s) {
+            if (!isFinite(s)) return '0:00';
+            const m = Math.floor(s / 60);
+            const ss = Math.floor(s % 60).toString().padStart(2, '0');
+            return `${m}:${ss}`;
+        }
+
+        function loadFromElement(el) {
+            const src = el.getAttribute('data-src');
+            if (!src) return;
+            audio.src = src;
+            titleEl.textContent = el.getAttribute('data-title') || 'Unknown';
+            artistEl.textContent = el.getAttribute('data-artist') || '';
+            const cover = el.getAttribute('data-cover');
+            if (cover) { coverEl.src = cover; coverEl.classList.remove('hidden'); } else { coverEl.classList.add('hidden'); }
+        }
+
+        function rebuildPlaylist() {
+            const nodes = Array.from(document.querySelectorAll('.song-item'));
+            playlist = nodes.map((el, i) => ({ el, src: el.getAttribute('data-src') || '', i }));
+        }
+
+        function playAt(i) {
+            if (i < 0 || i >= playlist.length) return;
+            index = i;
+            const el = playlist[index].el;
+            loadFromElement(el);
+            audio.play().catch(() => {});
+            updatePlayIcon();
+            highlightActive();
+        }
+
+        function highlightActive() {
+            document.querySelectorAll('.song-item').forEach((el, i) => {
+                if (i === index) el.classList.add('ring-2','ring-orange-500');
+                else el.classList.remove('ring-2','ring-orange-500');
+            });
+        }
+
+        function updatePlayIcon() { playBtn.textContent = audio.paused ? '▶️' : '⏸️'; }
+
+        function bindSongItems() {
+            document.querySelectorAll('.song-item [data-action="play"]').forEach((btn, i) => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    rebuildPlaylist();
+                    const container = btn.closest('.song-item');
+                    const nodes = Array.from(document.querySelectorAll('.song-item'));
+                    const idx = nodes.indexOf(container);
+                    if (idx !== -1) playAt(idx);
+                });
+            });
+        }
+
+        playBtn.addEventListener('click', () => {
+            if (!audio.src) { rebuildPlaylist(); if (playlist.length) playAt(0); return; }
+            if (audio.paused) audio.play(); else audio.pause();
+        });
+        prevBtn.addEventListener('click', () => { if (playlist.length) playAt(index > 0 ? index - 1 : 0); });
+        nextBtn.addEventListener('click', () => { if (playlist.length) playAt(index + 1 < playlist.length ? index + 1 : index); });
+        loopBtn.addEventListener('click', () => { audio.loop = !audio.loop; loopBtn.classList.toggle('bg-gray-700', audio.loop); });
+        shareBtn.addEventListener('click', async () => {
+            if (!audio.src) return;
+            const shareData = { title: titleEl.textContent, text: artistEl.textContent, url: audio.src };
+            try { if (navigator.share) await navigator.share(shareData); else { await navigator.clipboard.writeText(audio.src); shareBtn.textContent = '✅'; setTimeout(() => shareBtn.textContent = '🔗', 1200); } } catch (_) {}
+        });
+
+        let isSeeking = false;
+        let pendingSeekPercent = null;
+        audio.addEventListener('timeupdate', () => {
+            if (isSeeking) return;
+            if (isFinite(audio.duration) && audio.duration > 0) {
+                seek.value = (audio.currentTime / audio.duration) * 100;
+                document.getElementById('gp-current').textContent = timeFmt(audio.currentTime);
+                document.getElementById('gp-duration').textContent = timeFmt(audio.duration);
+            }
+        });
+        audio.addEventListener('play', updatePlayIcon);
+        audio.addEventListener('pause', updatePlayIcon);
+        audio.addEventListener('ended', () => { if (!audio.loop && index + 1 < playlist.length) playAt(index + 1); });
+        const beginSeek = () => { isSeeking = true; };
+        const commitSeek = () => {
+            if (isFinite(audio.duration)) {
+                audio.currentTime = (seek.value / 100) * audio.duration;
+                pendingSeekPercent = null;
+            } else {
+                pendingSeekPercent = Number(seek.value);
+            }
+            isSeeking = false;
+        };
+        const liveSeek = () => {
+            if (!isFinite(audio.duration)) return;
+            const t = (seek.value / 100) * audio.duration;
+            document.getElementById('gp-current').textContent = timeFmt(t);
+        };
+        document.getElementById('gp-seek').addEventListener('pointerdown', beginSeek);
+        document.getElementById('gp-seek').addEventListener('touchstart', beginSeek, { passive: true });
+        document.getElementById('gp-seek').addEventListener('input', liveSeek);
+        document.getElementById('gp-seek').addEventListener('change', commitSeek);
+        document.getElementById('gp-seek').addEventListener('pointerup', commitSeek);
+        document.getElementById('gp-seek').addEventListener('touchend', commitSeek);
+
+        audio.addEventListener('loadedmetadata', () => {
+            if (pendingSeekPercent != null && isFinite(audio.duration)) {
+                audio.currentTime = (pendingSeekPercent / 100) * audio.duration;
+                pendingSeekPercent = null;
+            }
+            document.getElementById('gp-duration').textContent = timeFmt(audio.duration);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => { bindSongItems(); rebuildPlaylist(); });
+    })();
+    </script>
+</body>
+</html>

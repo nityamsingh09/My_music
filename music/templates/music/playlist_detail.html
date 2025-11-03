@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto mt-10 bg-gray-900 text-white rounded-2xl shadow-lg p-6">
+
+    <!-- Playlist Title -->
+    <h1 class="text-3xl font-bold text-orange-400 mb-6">
+        🎵 {{ playlist.name }}
+    </h1>
+
+    <!-- Playlist Songs -->
+    {% if items %}
+        <ul class="divide-y divide-gray-700">
+            {% for item in items %}
+            <li class="flex items-center justify-between py-3 song-item"
+                data-src="{{ item.song.audio_file.url }}"
+                data-title="{{ item.song.title }}"
+                data-artist="{% for artist in item.song.artists.all %}{{ artist.name }}{% if not forloop.last %}, {% endif %}{% endfor %}"
+                data-cover="{% if item.song.cover %}{{ item.song.cover.url }}{% endif %}">
+                <div class="flex items-center gap-3 sm:block">
+                    {% if item.song.cover %}
+                        <img src="{{ item.song.cover.url }}" alt="{{ item.song.title }}" class="w-12 h-12 object-cover rounded-md hidden sm:block">
+                    {% endif %}
+                    <span class="font-semibold">{{ item.song.title }}</span>
+                    <span class="text-xs sm:text-sm text-gray-400">
+                        by 
+                        {% for artist in item.song.artists.all %}
+                            {{ artist.name }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </span>
+                </div>
+
+                <!-- Song Controls -->
+                <div class="flex space-x-3">
+                    <button data-action="play" class="bg-green-500 hover:bg-green-600 px-3 py-2 rounded-lg text-sm">▶ Play</button>
+
+                    <!-- Remove Song (you’ll need to add remove view/URL later) -->
+                    <form action="{% url 'playlist_remove_song' playlist.pk item.song.pk %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" 
+                                class="bg-red-500 hover:bg-red-600 px-3 py-2 rounded-lg text-sm">
+                            ❌ Remove
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-gray-400">This playlist has no songs yet.</p>
+    {% endif %}
+
+    <!-- Back + Add Songs -->
+    <div class="mt-6 flex justify-between">
+        <a href="{% url 'playlist_list' %}" 
+           class="text-sm text-gray-400 hover:underline">← Back to Playlists</a>
+        <a href="{% url 'song_list' %}" 
+           class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg shadow">
+            ➕ Add Songs
+        </a>
+    </div>
+
+</div>
+{% endblock %}
